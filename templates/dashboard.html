@@ -302,6 +302,8 @@
             socket.off('terminal_output');
             currentTerminal = terminalName;
 
+            localStorage.setItem('activeTerminal', terminalName);
+
             if (!terminalOutputs[currentTerminal]) {
                 terminalOutputs[currentTerminal] = '';
             }
@@ -316,6 +318,8 @@
                 terminalOutputs[currentTerminal] += ansiToPlainText(data.output);
                 document.getElementById('terminal-output').value = terminalOutputs[currentTerminal];
                 document.getElementById('terminal-output').scrollTop = document.getElementById('terminal-output').scrollHeight;
+
+                localStorage.setItem(`terminalOutput_${terminalName}`, terminalOutputs[currentTerminal]);
             });
         }
 
@@ -326,7 +330,8 @@
                 document.getElementById('command-input').value = '';
             }
             if (commandInput === 'clear') {
-                terminalOutputs[currentTerminal] = ''
+                terminalOutputs[currentTerminal] = '';
+                localStorage.setItem(`terminalOutput_${currentTerminal}`, '');
             }
         }
 
@@ -342,9 +347,12 @@
             .then(data => {
                 alert(data.message || data.error);
                 refreshTerminals();
+                localStorage.removeItem(`terminalOutput_${terminalName}`);
+                if (terminalName === localStorage.getItem('activeTerminal')) {
+                    localStorage.removeItem('activeTerminal');
+                }
             });
         }
-
 
         let currentPath = '';
 
@@ -533,6 +541,16 @@
                     sendCommand();
                 }
             });
+
+            const savedTerminal = localStorage.getItem('activeTerminal');
+            if (savedTerminal) {
+                connectTerminal(savedTerminal);
+                const savedOutput = localStorage.getItem(`terminalOutput_${savedTerminal}`);
+                if (savedOutput) {
+                    terminalOutputs[savedTerminal] = savedOutput;
+                    document.getElementById('terminal-output').value = savedOutput;
+                }
+            }
         }
     </script>
 </head>
