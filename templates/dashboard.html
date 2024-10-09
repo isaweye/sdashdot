@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sdash.</title>
+    <style>
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #dcdcdc;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            animation: fadeIn 0.8s ease-in-out;
+        }
+
+        .section {
+            background-color: #2c2c2c;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            transition: transform 0.3s ease-in-out;
+            animation: fadeIn 1s ease-in-out;
+            position: relative;
+        }
+
+        h2 {
+            color: #ffffff;
+            animation: fadeIn 1.2s ease-in-out;
+        }
+
+        .label {
+            font-weight: bold;
+            animation: fadeIn 1.4s ease-in-out;
+        }
+
+        .icon {
+            width: 32px;
+            vertical-align: middle;
+            margin-right: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .icon:hover {
+            transform: scale(1.1);
+        }
+
+        .status-icon {
+            width: 16px;
+            vertical-align: middle;
+            transition: transform 0.3s ease;
+        }
+
+        .status-icon:hover {
+            transform: scale(1.1);
+        }
+
+        #cpu-usage, #memory-usage, #disk-usage, #cpu-temp {
+            transition: all 0.5s ease-in-out;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background-color: #444;
+            margin-top: 10px;
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+        }
+
+        .progress {
+            width: 0;
+            height: 100%;
+            background-color: #ffffff;
+            transition: width 1s linear;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #333;
+            padding: 10px 20px;
+            color: white;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .github-icon {
+            width: 32px;
+            height: 32px;
+            transition: transform 0.3s ease;
+        }
+
+        .github-icon:hover {
+            transform: scale(1.1);
+        }
+
+        .source-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+            margin-left: 10px;
+        }
+
+        .source-btn:hover {
+            background-color: #45a049;
+        }
+
+        .terminal-controls, .terminal-list, #terminal-output-container {
+            margin-bottom: 20px;
+        }
+
+        #terminal-output {
+            width: 99%;
+            height: 300px;
+            background-color: #1a1a1a;
+            color: #e8e8e8;
+            resize: none;
+            border: 2px solid #444;
+            border-radius: 5px;
+        }
+        #command-input {
+            width: 97.55%;
+            padding: 10px;
+            background-color: #1a1a1a;
+            color: #e8e8e8;
+            font-family: monospace;
+            border: 2px solid #444;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        .terminal-item {
+            margin-bottom: 5px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-right a {
+            text-decoration: none;
+            color: white;
+        }
+
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .file-table th, .file-table td {
+            border: 1px solid #444;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 0;
+        }
+
+        .file-icon {
+            width: 24px;
+            margin-right: 10px;
+        }
+
+        .path-label {
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .nav-button, .delete-button, .reload-button {
+            cursor: pointer;
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .back-button {
+            margin-right: 10px;
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .reload-button {
+            background-color: #2196F3;
+        }
+
+        .delete-button {
+            background-color: #f44336;
+        }
+
+        .empty-directory {
+            text-align: center;
+            color: #888;
+            margin: 20px 0;
+        }
+
+        #drop-area {
+            border: 2px dashed #4CAF50;
+            padding: 20px;
+            text-align: center;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        #drop-area.dragover {
+            background-color: #333;
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        let currentTerminal = '';
+        let terminalOutputs = {}
+
+        function ansiToPlainText(text) {
+            return text.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+        }
+
+        function createTerminal() {
+            const terminalName = document.getElementById('terminal-name').value;
+            if (terminalName === '') {
+                alert('Please enter a terminal name.');
+                return;
+            }
+            
+            fetch('/api/create-terminal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({name: terminalName})
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || data.error);
+                refreshTerminals();
+            });
+        }
+
+        function refreshTerminals() {
+            fetch('/api/list-terminals')
+            .then(response => response.json())
+            .then(data => {
+                const terminalList = document.getElementById('terminal-list');
+                terminalList.innerHTML = '';
+
+                data.terminals.forEach(terminal => {
+                    const terminalDiv = document.createElement('div');
+                    terminalDiv.className = 'terminal-item';
+                    terminalDiv.innerHTML = `
+                        <span>${terminal}</span>
+                        <button class="source-btn" onclick="connectTerminal('${terminal}')">Connect</button>
+                        <button class="source-btn" onclick="deleteTerminal('${terminal}')">Delete</button>
+                    `;
+                    terminalList.appendChild(terminalDiv);
+                });
+            });
+        }
+
+        function connectTerminal(terminalName) {
+            if (currentTerminal === terminalName) {
+                return;
+            }
+
+            socket.off('terminal_output');
+            currentTerminal = terminalName;
+
+            if (!terminalOutputs[currentTerminal]) {
+                terminalOutputs[currentTerminal] = '';
+            }
+
+            document.getElementById('terminal-output').value = terminalOutputs[currentTerminal];
+            socket.emit('connect_terminal', { name: terminalName });
+
+            const terminal = document.getElementById('current-terminal');
+            terminal.innerHTML = `> ${terminalName}`;
+
+            socket.on('terminal_output', function(data) {
+                terminalOutputs[currentTerminal] += ansiToPlainText(data.output);
+                document.getElementById('terminal-output').value = terminalOutputs[currentTerminal];
+                document.getElementById('terminal-output').scrollTop = document.getElementById('terminal-output').scrollHeight;
+            });
+        }
+
+        function sendCommand() {
+            const commandInput = document.getElementById('command-input').value;
+            if (commandInput !== '') {
+                socket.emit('send_command', {name: currentTerminal, command: commandInput});
+                document.getElementById('command-input').value = '';
+            }
+            if (commandInput === 'clear') {
+                terminalOutputs[currentTerminal] = ''
+            }
+        }
+
+        function deleteTerminal(terminalName) {
+            fetch('/api/delete-terminal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({name: terminalName})
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || data.error);
+                refreshTerminals();
+            });
+        }
+
+
+        let currentPath = '';
+
+        function getStatusIcon(percent) {
+            if (percent < 50) {
+                return 'https://img.icons8.com/color/48/000000/ok.png';
+            } else if (percent < 80) {
+                return 'https://img.icons8.com/color/48/ffcc00/warning-shield.png';
+            } else {
+                return 'https://img.icons8.com/color/48/ff0000/error.png';
+            }
+        }
+
+        function updateSystemInfo() {
+            fetch('/api/system-info')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('cpu-usage').textContent = data.cpu + '%';
+                document.getElementById('cpu-status').src = getStatusIcon(data.cpu);
+                document.getElementById('memory-usage').textContent = data.memory.percent + '%';
+                document.getElementById('memory-used').textContent = (data.memory.used / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                document.getElementById('memory-total').textContent = (data.memory.total / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                document.getElementById('memory-status').src = getStatusIcon(data.memory.percent);
+                document.getElementById('disk-usage').textContent = (data.disk.used / (1024 * 1024 * 1024)).toFixed(2) + ' GB / ' + (data.disk.total / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                document.getElementById('disk-status').src = getStatusIcon(data.disk.percent);
+                document.getElementById('cpu-temp').textContent = data.temperature + '°C';
+                if (data.temperature !== 'N/A') {
+                    let tempStatus = data.temperature < 60 ? 'https://img.icons8.com/color/48/000000/ok.png' :
+                                    (data.temperature < 80 ? 'https://img.icons8.com/color/48/ffcc00/warning-shield.png' :
+                                    'https://img.icons8.com/color/48/ff0000/error.png');
+                    document.getElementById('temp-status').src = tempStatus;
+                } else {
+                    document.getElementById('temp-status').src = 'https://img.icons8.com/color/48/808080/question-mark.png';
+                }
+                startProgressBar();
+            });
+        }
+
+        function startProgressBar() {
+            const progress = document.querySelector('.progress');
+            
+            progress.style.transition = 'none';
+            progress.style.width = '0%';
+            
+            setTimeout(() => {
+                progress.style.transition = 'width 1s linear';
+                progress.style.width = '100%';
+            }, 5);
+        }
+
+        function listFiles(path = '') {
+            currentPath = path;
+            document.getElementById('current-path').textContent = path ? `${path}` : '/';
+
+            fetch(`/api/files?path=${encodeURIComponent(path)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const fileList = document.getElementById('file-list');
+                    fileList.innerHTML = '';
+
+                    if (data.files.length === 0) {
+                        fileList.innerHTML = '<p class="empty-directory">Directory is empty</p>';
+                        return;
+                    }
+
+                    const directories = data.files.filter(file => file.is_dir).sort((a, b) => a.name.localeCompare(b.name));
+                    const files = data.files.filter(file => !file.is_dir).sort((a, b) => a.name.localeCompare(b.name));
+                    const sortedFiles = [...directories, ...files];
+
+                    const table = document.createElement('table');
+                    table.className = 'file-table';
+                    const headerRow = document.createElement('tr');
+                    headerRow.innerHTML = '<th>Name</th><th>Actions</th>';
+                    table.appendChild(headerRow);
+
+                    sortedFiles.forEach(file => {
+                        const row = document.createElement('tr');
+                        const icon = file.is_dir ? 'https://img.icons8.com/color/48/000000/category.png' :
+                            'https://img.icons8.com/color/48/000000/file.png';
+                        row.innerHTML = `
+                            <td><img src="${icon}" class="file-icon" alt="${file.is_dir ? 'Folder' : 'File'}"> ${file.name}</td>
+                            <td>
+                                ${file.is_dir ? 
+                                    `<button class="nav-button" onclick="listFiles('${path}/${file.name}')">
+                                        <img src="https://img.icons8.com/ios-filled/50/ffffff/back.png" alt="Open Folder">
+                                    </button>` :
+                                    `<button class="nav-button" onclick="downloadFile('${path}/${file.name}')">
+                                        <img src="https://img.icons8.com/ios-filled/50/ffffff/download.png" alt="Download File">
+                                    </button>`
+                                }
+                                ${path !== '' ? 
+                                    `<button class="nav-button" onclick="deleteFile('${path}/${file.name}')">
+                                        <img src="https://img.icons8.com/ios-filled/50/ffffff/trash.png" alt="Delete File">
+                                    </button>` : ''
+                                }
+                            </td>
+                        `;
+                        table.appendChild(row);
+                    });
+
+
+                    fileList.appendChild(table);
+                });
+        }
+
+        function downloadFile(filePath) {
+            window.location.href = `/api/download?path=${encodeURIComponent(filePath)}`;
+        }
+
+        function deleteFile(filePath) {
+            if (confirm('Are you sure you want to delete this file?')) {
+                fetch(`/api/delete?path=${encodeURIComponent(filePath)}`, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            listFiles(currentPath);
+                        } else {
+                            alert(data.message || 'Error deleting file.');
+                        }
+                    });
+            }
+        }
+
+        function goBack() {
+            const pathSegments = currentPath.split('/');
+            pathSegments.pop();
+            listFiles(pathSegments.join('/'));
+        }
+
+        function reloadFiles() {
+            listFiles(currentPath);
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            document.getElementById('drop-area').classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            document.getElementById('drop-area').classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            document.getElementById('drop-area').classList.remove('dragover');
+
+            const files = event.dataTransfer.files;
+            const formData = new FormData();
+
+            for (let i = 0; i < files.length; i++) {
+                formData.append('file', files[i]);
+            }
+
+            fetch(`/api/upload?path=${encodeURIComponent(currentPath)}`, {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                }
+                reloadFiles();
+            });
+        }
+
+        function goToRoot() {
+            listFiles('');
+        }
+
+        setInterval(() => {
+            updateSystemInfo();
+        }, 1000);
+
+        window.onload = function() {
+            updateSystemInfo();
+            listFiles('');
+            refreshTerminals();
+
+            const dropArea = document.getElementById('drop-area');
+            dropArea.addEventListener('dragover', handleDragOver);
+            dropArea.addEventListener('dragleave', handleDragLeave);
+            dropArea.addEventListener('drop', handleDrop);
+
+            document.getElementById('command-input').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    sendCommand();
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <div class="header-title">sdash.</div>
+        <div class="header-right">
+            <a href="https://github.com/isaweye/sdashdot" target="_blank">
+                <img src="https://img.icons8.com/ios-filled/50/ffffff/github.png" class="github-icon" alt="GitHub Repository">
+            </a>
+        </div>
+    </header>
+    <div class="container">
+        <div class="section">
+            <h2><img src="https://img.icons8.com/ios-filled/50/ffffff/computer.png" class="icon"> System Overview</h2>
+
+            <p><span class="label">CPU Usage:</span> <span id="cpu-usage">0%</span> <img id="cpu-status" class="status-icon" src="" alt="Status"></p>
+            <p><span class="label">Memory Usage:</span> <span id="memory-usage">0%</span> (Used: <span id="memory-used">0 GB</span> / Total: <span id="memory-total">0 GB</span>) <img id="memory-status" class="status-icon" src="" alt="Status"></p>
+            <p><span class="label">Disk Usage:</span> <span id="disk-usage">0 GB</span> <img id="disk-status" class="status-icon" src="" alt="Status"></p>
+            <p><span class="label">CPU Temperature:</span> <span id="cpu-temp">N/A</span> <img id="temp-status" class="status-icon" src="" alt="Status"></p>
+            <div class="progress-bar"><div class="progress"></div></div>
+        </div>
+
+        <div class="section">
+            <h2><img src="https://img.icons8.com/ios-filled/50/ffffff/note.png" class="icon"> File Explorer</h2>
+            <button class="reload-button" onclick="goBack()">Back</button>
+            <button class="reload-button" onclick="reloadFiles()">Reload</button>
+            <p>
+            <div id="current-path" class="path-label">/</div>
+            <div id="file-list"></div>
+            <div id="drop-area">
+                <p>Drag and drop files here to upload</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2><img src="https://img.icons8.com/ios-filled/50/ffffff/console.png" class="icon"> Terminal Manager</h2>
+            
+            <div class="terminal-controls">
+                <input type="text" id="terminal-name" placeholder="Enter terminal name">
+                <button class="source-btn" onclick="createTerminal()">Create</button>
+                <button class="source-btn" onclick="refreshTerminals()">Refresh</button>
+            </div>
+            
+            <div id="terminal-list" class="terminal-list">
+            </div>
+
+            <span id="current-terminal"></span>
+
+            <div id="terminal-output-container">
+                <textarea id="terminal-output" readonly></textarea>
+                <input type="text" id="command-input" placeholder="Enter command">
+            </div>
+        </div>
+    </div>
+</body>
+</html>
