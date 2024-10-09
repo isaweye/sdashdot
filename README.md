@@ -2,6 +2,8 @@
 
 A lightweight and simple control panel for your single board computers! 
 
+![sdash.](assets/view.png)
+
 ## Features
 
 - Create and manage terminal sessions with `screen`.
